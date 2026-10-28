@@ -1,0 +1,99 @@
+name: Cloud VPS 24/7 (SPayLater Withdrawal Bot)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '*/25 * * * *'
+
+concurrency:
+  group: spaylater-bot-24-7-singleton
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  run-bot-24-7:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout Bot & Database
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Verify or Install Google Chrome
+        run: |
+          if ! command -v google-chrome &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y wget
+            wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+            sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get install -fy
+          fi
+          google-chrome --version
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Bot 24/7 with Auto-DB-Backup (5h30m cycle)
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          git config user.name "SPayLater Auto-Save"
+          git config user.email "bot@users.noreply.github.com"
+
+          # Chạy bot ở chế độ nền qua watchdog
+          python watchdog.py &
+          BOT_PID=$!
+
+          START_TS=$(date +%s)
+          MAX_SEC=19800  # 5 tiếng 30 phút
+
+          while kill -0 $BOT_PID 2>/dev/null; do
+            sleep 60
+            NOW_TS=$(date +%s)
+            ELAPSED=$((NOW_TS - START_TS))
+
+            # Sao lưu Database spaylater.db lên Cloud định kỳ mỗi 5 phút
+            if [ $((ELAPSED % 300)) -lt 65 ]; then
+              python -c "import sqlite3; c=sqlite3.connect('spaylater.db'); c.execute('PRAGMA wal_checkpoint(PASSIVE)'); c.close()" || true
+              git add spaylater.db
+              if ! git diff --staged --quiet; then
+                git commit -m "Auto-sync spaylater.db [skip ci]" || true
+                git pull --rebase origin main || true
+                git push origin main || true
+              fi
+            fi
+
+            if [ $ELAPSED -ge $MAX_SEC ]; then
+              echo "Cycle complete, saving DB and handing over to next 24/7 instance..."
+              kill -TERM $BOT_PID 2>/dev/null || true
+              sleep 3
+              break
+            fi
+          done
+
+      - name: Save Database & Trigger Next 24/7 Cycle Immediately
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -c "import sqlite3; c=sqlite3.connect('spaylater.db'); c.execute('PRAGMA wal_checkpoint(TRUNCATE)'); c.close()" || true
+          git add spaylater.db
+          if ! git diff --staged --quiet; then
+            git commit -m "Final sync spaylater.db before handover [skip ci]" || true
+            git pull --rebase origin main || true
+            git push origin main || true
+          fi
+          gh workflow run "vps_24_7.yml" --ref main || true
