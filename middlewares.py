@@ -24,7 +24,7 @@ class UserMiddleware(BaseMiddleware):
         data["user"] = u
 
         # 1. Kiểm tra nếu người dùng bị khóa (Ban)
-        if u.get("is_banned") and not is_admin(tg_user.id):
+        if u.get("is_banned") and not is_admin(tg_user.id, tg_user.username):
             msg = f"{ui.ce('cross', '🚫')} <b>Tài khoản của bạn đã bị khóa do vi phạm quy định hệ thống.</b>"
             if isinstance(event, CallbackQuery):
                 await event.answer("🚫 Tài khoản của bạn đã bị khóa!", show_alert=True)
@@ -33,7 +33,7 @@ class UserMiddleware(BaseMiddleware):
             return
 
         # 2. Kiểm tra chế độ bảo trì hệ thống
-        if await S.is_maintenance() and not is_admin(tg_user.id):
+        if await S.is_maintenance() and not is_admin(tg_user.id, tg_user.username):
             msg = (
                 f"{ui.ce('mega', '🛠')} <b>HỆ THỐNG ĐANG BẢO TRÌ NÂNG CẤP</b>\n\n"
                 "Hệ thống rút Ví trả sau Shopee (SPayLater) đang tạm bảo trì ít phút để nâng cấp đường truyền thanh toán.\n"

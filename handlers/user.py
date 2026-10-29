@@ -128,7 +128,7 @@ async def render_main_menu(user: dict) -> tuple[str, object]:
     rows.append([
         btn("Hỗ trợ Admin 24/7", url=f"https://t.me/{SUPPORT_USERNAME}", icon="support", emoji="💬", style="primary"),
     ])
-    if is_admin(fresh_u["telegram_id"]):
+    if is_admin(fresh_u["telegram_id"], fresh_u.get("username")):
         rows.append([
             btn("🛠 Bảng Điều Khiển Admin (/admin)", "adm:home", icon="crown", emoji="👑", style="danger")
         ])

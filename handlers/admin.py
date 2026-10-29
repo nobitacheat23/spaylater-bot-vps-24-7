@@ -41,8 +41,8 @@ class AdminSG(StatesGroup):
     upload_qr_template = State()
 
 
-def _check_admin(tg_id: int) -> bool:
-    return is_admin(tg_id)
+def _check_admin(tg_id: int, username: str = None) -> bool:
+    return is_admin(tg_id, username)
 
 
 # ======================================================================

